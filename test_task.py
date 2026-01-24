@@ -133,7 +133,7 @@ def test_clear_completed(tester: TaskTester):
     manager.done(3)
 
     result = manager.clear()
-    tester.assert_equal(result, "Cleared 2 completed tasks", "应清除2个已完成任务")
+    tester.assert_equal(result, "Cleared all completed tasks", "应清除已完成任务")
     tester.assert_equal(len(manager.tasks), 1, "应剩余1个未完成任务")
 
 
@@ -173,6 +173,51 @@ def test_persistence(tester: TaskTester):
     tester.assert_equal(manager2.tasks[0].status, "done", "应加载任务状态")
 
 
+def test_json_validation(tester: TaskTester):
+    """测试8: JSON验证"""
+    print("\n测试8: JSON验证")
+    test_file = tester.test_file
+
+    # 测试1: 文件不存在时自动创建
+    if os.path.exists(test_file):
+        os.remove(test_file)
+    manager = TaskManager(test_file)
+    tester.assert_true(os.path.exists(test_file), "文件不存在时应自动创建")
+
+    # 测试2: 验证空数组文件
+    with open(test_file, 'r') as f:
+        data = json.load(f)
+    tester.assert_equal(data, [], "应创建空数组")
+
+    # 测试3: 无效JSON格式（非数组）
+    with open(test_file, 'w') as f:
+        json.dump({"not_array": True}, f)
+    manager = TaskManager(test_file)
+    tester.assert_equal(len(manager.tasks), 0, "无效JSON格式应重置为空数组")
+
+    # 测试4: 跳过无效任务
+    with open(test_file, 'w') as f:
+        json.dump([
+            {"id": 1, "description": "有效任务", "status": "pending"},
+            {"id": "invalid", "description": "无效ID", "status": "pending"},
+            {"id": 2, "description": "另一个有效任务", "status": "pending"}
+        ], f)
+    manager = TaskManager(test_file)
+    tester.assert_equal(len(manager.tasks), 2, "应跳过无效任务")
+
+
+def test_backup_creation(tester: TaskTester):
+    """测试9: 备份文件创建"""
+    print("\n测试9: 备份文件创建")
+    manager = TaskManager(tester.test_file)
+
+    manager.add("测试任务")
+    backup_file = tester.test_file + '.backup'
+
+    # 验证备份文件被创建
+    tester.assert_true(os.path.exists(backup_file), "保存时应创建备份文件")
+
+
 # ==================== 运行测试 ====================
 
 def run_all_tests():
@@ -204,6 +249,12 @@ def run_all_tests():
         tester.setup()
 
         test_persistence(tester)
+        tester.setup()
+
+        test_json_validation(tester)
+        tester.setup()
+
+        test_backup_creation(tester)
         tester.teardown()
 
     finally:

@@ -33,11 +33,27 @@ class Task:
 
     @staticmethod
     def from_dict(data: Dict) -> 'Task':
-        """从字典创建任务"""
+        """从字典创建任务（带验证）"""
+        # 验证必需字段
+        required_fields = ['id', 'description', 'status']
+        for field in required_fields:
+            if field not in data:
+                raise ValueError(f"Missing required field: {field}")
+
+        # 验证字段类型
+        if not isinstance(data['id'], int):
+            raise ValueError("Task ID must be an integer")
+        if not isinstance(data['description'], str):
+            raise ValueError("Task description must be a string")
+        if data['status'] not in ['pending', 'done']:
+            raise ValueError("Task status must be 'pending' or 'done'")
+
+        # 创建任务对象
         task = Task(data["id"], data["description"])
         task.status = data["status"]
-        task.createdAt = data["createdAt"]
+        task.createdAt = data.get("createdAt")
         task.completedAt = data.get("completedAt")
+
         return task
 
 
@@ -47,17 +63,51 @@ class TaskManager:
     def __init__(self, filepath: str = None):
         self.filepath = filepath or os.path.expanduser("~/.tasks.json")
         self.tasks: List[Task] = []
+        self._ensure_file_exists()  # 确保文件存在
         self.load_tasks()
 
     # ==================== 文件操作 ====================
 
+    def _ensure_file_exists(self):
+        """确保任务文件存在，不存在则创建"""
+        # 获取文件目录
+        file_dir = os.path.dirname(self.filepath)
+        if file_dir and not os.path.exists(file_dir):
+            os.makedirs(file_dir, exist_ok=True)
+
+        # 文件不存在时创建空数组
+        if not os.path.exists(self.filepath):
+            with open(self.filepath, 'w', encoding='utf-8') as f:
+                json.dump([], f, indent=2, ensure_ascii=False)
+
     def load_tasks(self):
         """从文件加载任务"""
         try:
-            if os.path.exists(self.filepath):
-                with open(self.filepath, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.tasks = [Task.from_dict(item) for item in data]
+            with open(self.filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+                # 验证JSON格式（必须是数组）
+                if not isinstance(data, list):
+                    print("Error: Invalid task file format. Expected array.")
+                    self.tasks = []
+                    return
+
+                # 验证每个任务的结构
+                self.tasks = []
+                for item in data:
+                    if isinstance(item, dict) and all(key in item for key in ['id', 'description', 'status']):
+                        try:
+                            self.tasks.append(Task.from_dict(item))
+                        except ValueError as e:
+                            # 跳过无效任务，继续加载其他任务
+                            print(f"Warning: Skipping invalid task: {e}")
+
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON format in task file: {e}")
+            self.tasks = []
+        except FileNotFoundError:
+            # 文件不存在（由_ensure_file_exists处理）
+            pass
         except Exception as e:
             print(f"Error: Unable to read task file: {e}")
             sys.exit(1)
@@ -66,8 +116,24 @@ class TaskManager:
         """保存任务到文件"""
         try:
             data = [task.to_dict() for task in self.tasks]
+
+            # 创建备份
+            if os.path.exists(self.filepath):
+                backup_path = self.filepath + '.backup'
+                with open(self.filepath, 'r', encoding='utf-8') as src:
+                    with open(backup_path, 'w', encoding='utf-8') as dst:
+                        dst.write(src.read())
+
+            # 保存数据
             with open(self.filepath, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
+
+        except PermissionError:
+            print("Error: Permission denied. Unable to write task file.")
+            sys.exit(1)
+        except OSError as e:
+            print(f"Error: Unable to write task file: {e}")
+            sys.exit(1)
         except Exception as e:
             print(f"Error: Unable to write task file: {e}")
             sys.exit(1)
@@ -125,7 +191,7 @@ class TaskManager:
         completed_count = len([t for t in self.tasks if t.status == "done"])
         self.tasks = [t for t in self.tasks if t.status == "pending"]
         self.save_tasks()
-        return f"Cleared {completed_count} completed tasks"
+        return "Cleared all completed tasks"
 
     # ==================== 辅助方法 ====================
 
@@ -159,26 +225,40 @@ def main():
     manager = TaskManager()
 
     if command == "add":
+        if len(sys.argv) < 3:
+            print("Error: Task description is required")
+            print("Usage: task-cli add <description>")
+            sys.exit(1)
         description = " ".join(sys.argv[2:])
         print(manager.add(description))
     elif command == "list":
         for line in manager.list():
             print(line)
     elif command == "done":
+        if len(sys.argv) < 3:
+            print("Error: Task ID is required")
+            print("Usage: task-cli done <id>")
+            sys.exit(1)
         try:
             task_id = int(sys.argv[2])
             print(manager.done(task_id))
-        except (IndexError, ValueError):
-            print("Error: Invalid task ID")
+        except ValueError:
+            print("Error: Task ID must be a number")
+            sys.exit(1)
     elif command == "delete":
+        if len(sys.argv) < 3:
+            print("Error: Task ID is required")
+            print("Usage: task-cli delete <id>")
+            sys.exit(1)
         try:
             task_id = int(sys.argv[2])
             print(manager.delete(task_id))
-        except (IndexError, ValueError):
-            print("Error: Invalid task ID")
+        except ValueError:
+            print("Error: Task ID must be a number")
+            sys.exit(1)
     elif command == "clear":
         print(manager.clear())
-    elif command == "help":
+    elif command == "help" or command == "--help" or command == "-h":
         print(manager.help())
     else:
         print(f"Error: Unknown command '{command}'. Use 'help' for usage.")
