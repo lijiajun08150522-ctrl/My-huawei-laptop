@@ -2,6 +2,7 @@
 智能分析与报表模块
 """
 
+import os
 from typing import List, Dict, Optional
 from datetime import datetime
 from constants import (
@@ -285,12 +286,17 @@ class ReportGenerator:
         导出报表为文本文件
 
         Args:
-            filepath: 导出文件路径
+            filepath: 导出文件路径（支持相对路径和绝对路径）
 
         Returns:
             导出成功消息
         """
         content = self.generate_full_report()
+
+        # 转换为绝对路径
+        if not os.path.isabs(filepath):
+            # 使用当前工作目录
+            filepath = os.path.abspath(filepath)
 
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
