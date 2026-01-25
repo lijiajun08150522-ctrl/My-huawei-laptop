@@ -1,11 +1,12 @@
 """
-任务管理CLI工具 - 实现文件（重构版）
+任务管理CLI工具 - 实现文件（重构版 + 智能分析功能）
 """
 
 import sys
 from datetime import datetime
 from typing import List, Optional
 
+from analytics import TaskAnalyzerService
 from constants import (
     STATUS_PENDING, STATUS_DONE,
     FIELD_ID, FIELD_DESCRIPTION, FIELD_STATUS,
@@ -17,7 +18,8 @@ from constants import (
     MSG_TASK_ID_REQUIRED, MSG_TASK_ID_USAGE, MSG_TASK_ID_INVALID,
     MSG_DESC_REQUIRED, MSG_DESC_USAGE,
     ERR_INVALID_JSON, ERR_INVALID_FORMAT, ERR_SKIP_INVALID_TASK,
-    ERR_PERMISSION_DENIED, ERR_WRITE_FILE, ERR_READ_FILE
+    ERR_PERMISSION_DENIED, ERR_WRITE_FILE, ERR_READ_FILE,
+    MSG_EXPORT_SUCCESS, DEFAULT_SUMMARY_FILE
 )
 from validators import TaskValidator
 from storage import JSONTaskStorage
@@ -69,6 +71,9 @@ class TaskManager:
 
         self.tasks: List[Task] = []
         self._load_tasks()
+
+        # 初始化分析器服务
+        self.analyzer = TaskAnalyzerService(self)
 
     # ==================== 文件操作 ====================
 
@@ -129,14 +134,22 @@ class TaskManager:
         return MSG_ADDED.format(description=task.description)
 
     def list(self) -> List[str]:
-        """列出所有任务"""
+        """列出所有任务，包含积压警告"""
         if not self.tasks:
             return [MSG_NO_TASKS]
 
         result = []
+
+        # 检查任务积压警告
+        warning = self.analyzer.check_overload_warning()
+        if warning:
+            result.append(warning)
+
+        # 添加任务列表
         for task in self.tasks:
             status = STATUS_DONE if task.status == STATUS_DONE else STATUS_PENDING
             result.append(f"[{task.id}] {task.description} ({status})")
+
         return result
 
     def done(self, task_id: int) -> str:
@@ -188,6 +201,8 @@ Commands:
   done <id>            Mark task as completed
   delete <id>          Delete a task
   clear                Clear all completed tasks
+  stats                Show task statistics
+  report               Generate and export task report
   help                 Show this help message"""
 
 
@@ -244,6 +259,14 @@ def main():
 
     elif command == "clear":
         print(manager.clear())
+
+    elif command == "stats":
+        print(manager.analyzer.get_today_report())
+
+    elif command == "report":
+        filepath = DEFAULT_SUMMARY_FILE
+        result = manager.analyzer.export_summary(filepath)
+        print(result)
 
     elif command == "help" or command == "--help" or command == "-h":
         print(manager.help())

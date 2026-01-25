@@ -59,3 +59,38 @@ ERR_SKIP_INVALID_TASK = "Skipping invalid task: {error}"
 ERR_PERMISSION_DENIED = "Error: Permission denied. Unable to write task file."
 ERR_WRITE_FILE = "Error: Unable to write task file: {error}"
 ERR_READ_FILE = "Error: Unable to read task file: {error}"
+
+# ==================== 分析与报表常量 ====================
+
+# 消息常量
+MSG_TODAY_REPORT_HEADER = "今日简报"
+MSG_STATS_TOTAL = "总任务数"
+MSG_STATS_COMPLETED = "已完成"
+MSG_STATS_PENDING = "待办"
+MSG_STATS_COMPLETION_RATE = "完成率"
+MSG_STATS_BY_CATEGORY = "分类统计"
+MSG_STATS_PRIORITY = "优先级分布"
+
+# 警告消息
+MSG_TASK_OVERLOAD_WARNING = "注意：任务积压过多，请优先处理！"
+
+# 导出相关
+MSG_EXPORT_SUCCESS = "报表已导出: {filepath}"
+MSG_EXPORT_FAILED = "导出失败: {error}"
+
+# 配置常量
+TASK_OVERLOAD_THRESHOLD = 5
+DEFAULT_SUMMARY_FILE = "summary.txt"
+
+# 任务分类和优先级（未来扩展）
+DEFAULT_CATEGORY = "General"
+CATEGORIES = ["Work", "Study", "Life", "General"]
+PRIORITY_HIGH = "High"
+PRIORITY_MEDIUM = "Medium"
+PRIORITY_LOW = "Low"
+PRIORITIES = [PRIORITY_HIGH, PRIORITY_MEDIUM, PRIORITY_LOW]
+PRIORITY_WEIGHTS = {
+    PRIORITY_HIGH: 3,
+    PRIORITY_MEDIUM: 2,
+    PRIORITY_LOW: 1
+}
