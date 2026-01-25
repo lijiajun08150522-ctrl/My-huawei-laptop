@@ -1,0 +1,76 @@
+<!--pages/index/index.wxml-->
+<view class="container">
+  <!-- 统计卡片 -->
+  <view class="stats-card">
+    <view class="stats-grid">
+      <view class="stats-item">
+        <view class="stats-number">{{stats.total}}</view>
+        <view class="stats-label">总任务</view>
+      </view>
+      <view class="stats-item">
+        <view class="stats-number">{{stats.completed}}</view>
+        <view class="stats-label">已完成</view>
+      </view>
+      <view class="stats-item">
+        <view class="stats-number">{{stats.pending}}</view>
+        <view class="stats-label">待办</view>
+      </view>
+    </view>
+    <view class="completion-rate">完成率: {{stats.completionRate}}%</view>
+  </view>
+
+  <!-- 积压警告 -->
+  <view wx:if="{{showWarning}}" class="warning-card">
+    <text class="warning-icon">⚠️</text>
+    <text class="warning-text">注意：任务积压过多，请优先处理！</text>
+  </view>
+
+  <!-- 任务列表 -->
+  <view class="task-list">
+    <view wx:if="{{tasks.length === 0}}" class="empty-state">
+      <text>暂无任务</text>
+      <text>点击下方"添加"标签创建新任务</text>
+    </view>
+
+    <view
+      wx:for="{{tasks}}"
+      wx:key="id"
+      class="task-item {{item.status === 'done' ? 'completed' : ''}}"
+    >
+      <checkbox
+        class="task-checkbox"
+        checked="{{item.status === 'done'}}"
+        bindtap="toggleTask"
+        data-id="{{item.id}}"
+      />
+      <view class="task-content">
+        <text class="task-desc {{item.status === 'done' ? 'completed' : ''}}">
+          {{item.description}}
+        </text>
+        <text class="task-status {{item.status === 'done' ? 'completed' : ''}}">
+          {{item.status === 'done' ? '已完成' : '待办'}} | {{item.createdAt}}
+        </text>
+      </view>
+      <view class="task-actions">
+        <button
+          wx:if="{{item.status !== 'done'}}"
+          class="btn btn-success mini-btn"
+          bindtap="markDone"
+          data-id="{{item.id}}"
+          size="mini"
+        >完成</button>
+        <button
+          class="btn btn-danger mini-btn"
+          bindtap="deleteTask"
+          data-id="{{item.id}}"
+          size="mini"
+        >删除</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部操作按钮 -->
+  <view wx:if="{{hasCompletedTasks}}" class="footer-actions">
+    <button class="btn btn-primary" bindtap="clearCompleted">清除已完成任务</button>
+  </view>
+</view>

@@ -1,0 +1,51 @@
+<!--pages/add/add.wxml-->
+<view class="container">
+  <view class="card">
+    <view class="form-group">
+      <text class="form-label">任务描述</text>
+      <textarea
+        class="form-textarea"
+        placeholder="请输入任务描述..."
+        value="{{description}}"
+        bindinput="onInput"
+        auto-height
+        maxlength="200"
+        focus="{{focus}}"
+      />
+      <text class="char-count">{{description.length}}/200</text>
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">优先级</text>
+      <view class="priority-options">
+        <view
+          wx:for="{{priorities}}"
+          wx:key="value"
+          class="priority-option {{selectedPriority === item.value ? 'selected' : ''}}"
+          bindtap="selectPriority"
+          data-value="{{item.value}}"
+        >
+          <text class="priority-label">{{item.label}}</text>
+          <text class="priority-dot" style="background: {{item.color}}"></text>
+        </view>
+      </view>
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">分类</text>
+      <view class="category-options">
+        <view
+          wx:for="{{categories}}"
+          wx:key="value"
+          class="category-option {{selectedCategory === item.value ? 'selected' : ''}}"
+          bindtap="selectCategory"
+          data-value="{{item.value}}"
+        >
+          {{item.label}}
+        </view>
+      </view>
+    </view>
+
+    <button class="btn btn-primary full-btn" bindtap="addTask">添加任务</button>
+  </view>
+</view>
