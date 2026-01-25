@@ -1,15 +1,27 @@
 """
-任务管理CLI工具 - 实现文件
+任务管理CLI工具 - 实现文件（重构版）
 """
 
-import json
-import os
 import sys
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Optional
 
+from constants import (
+    STATUS_PENDING, STATUS_DONE,
+    FIELD_ID, FIELD_DESCRIPTION, FIELD_STATUS,
+    FIELD_CREATED_AT, FIELD_COMPLETED_AT,
+    MSG_ADDED, MSG_TASK_NOT_FOUND, MSG_TASK_ALREADY_DONE,
+    MSG_TASK_MARKED_DONE, MSG_TASK_DELETED, MSG_CLEARED_ALL,
+    MSG_EMPTY_DESCRIPTION, MSG_NO_TASKS,
+    MSG_NO_COMMAND, MSG_HELP_HINT, MSG_UNKNOWN_COMMAND,
+    MSG_TASK_ID_REQUIRED, MSG_TASK_ID_USAGE, MSG_TASK_ID_INVALID,
+    MSG_DESC_REQUIRED, MSG_DESC_USAGE,
+    ERR_INVALID_JSON, ERR_INVALID_FORMAT, ERR_SKIP_INVALID_TASK,
+    ERR_PERMISSION_DENIED, ERR_WRITE_FILE, ERR_READ_FILE
+)
+from validators import TaskValidator
+from storage import JSONTaskStorage
 
-# ==================== 数据结构定义 ====================
 
 class Task:
     """任务数据结构"""
@@ -17,42 +29,31 @@ class Task:
     def __init__(self, id: int, description: str):
         self.id = id
         self.description = description
-        self.status = "pending"
+        self.status = STATUS_PENDING
         self.createdAt = datetime.now().isoformat() + "Z"
         self.completedAt = None
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """转换为字典"""
         return {
-            "id": self.id,
-            "description": self.description,
-            "status": self.status,
-            "createdAt": self.createdAt,
-            "completedAt": self.completedAt
+            FIELD_ID: self.id,
+            FIELD_DESCRIPTION: self.description,
+            FIELD_STATUS: self.status,
+            FIELD_CREATED_AT: self.createdAt,
+            FIELD_COMPLETED_AT: self.completedAt
         }
 
     @staticmethod
-    def from_dict(data: Dict) -> 'Task':
+    def from_dict(data: dict) -> 'Task':
         """从字典创建任务（带验证）"""
-        # 验证必需字段
-        required_fields = ['id', 'description', 'status']
-        for field in required_fields:
-            if field not in data:
-                raise ValueError(f"Missing required field: {field}")
-
-        # 验证字段类型
-        if not isinstance(data['id'], int):
-            raise ValueError("Task ID must be an integer")
-        if not isinstance(data['description'], str):
-            raise ValueError("Task description must be a string")
-        if data['status'] not in ['pending', 'done']:
-            raise ValueError("Task status must be 'pending' or 'done'")
+        # 验证字段
+        TaskValidator.validate_task_fields(data)
 
         # 创建任务对象
-        task = Task(data["id"], data["description"])
-        task.status = data["status"]
-        task.createdAt = data.get("createdAt")
-        task.completedAt = data.get("completedAt")
+        task = Task(data[FIELD_ID], data[FIELD_DESCRIPTION])
+        task.status = data[FIELD_STATUS]
+        task.createdAt = data.get(FIELD_CREATED_AT)
+        task.completedAt = data.get(FIELD_COMPLETED_AT)
 
         return task
 
@@ -60,82 +61,57 @@ class Task:
 class TaskManager:
     """任务管理器"""
 
-    def __init__(self, filepath: str = None):
-        self.filepath = filepath or os.path.expanduser("~/.tasks.json")
+    def __init__(self, filepath: str = None, storage=None):
+        if storage:
+            self.storage = storage
+        else:
+            self.storage = JSONTaskStorage(filepath)
+
         self.tasks: List[Task] = []
-        self._ensure_file_exists()  # 确保文件存在
-        self.load_tasks()
+        self._load_tasks()
 
     # ==================== 文件操作 ====================
 
-    def _ensure_file_exists(self):
-        """确保任务文件存在，不存在则创建"""
-        # 获取文件目录
-        file_dir = os.path.dirname(self.filepath)
-        if file_dir and not os.path.exists(file_dir):
-            os.makedirs(file_dir, exist_ok=True)
+    def _load_tasks(self):
+        """从存储加载任务"""
+        self.storage.create_if_not_exists()
 
-        # 文件不存在时创建空数组
-        if not os.path.exists(self.filepath):
-            with open(self.filepath, 'w', encoding='utf-8') as f:
-                json.dump([], f, indent=2, ensure_ascii=False)
-
-    def load_tasks(self):
-        """从文件加载任务"""
         try:
-            with open(self.filepath, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+            data = self.storage.load()
 
-                # 验证JSON格式（必须是数组）
-                if not isinstance(data, list):
-                    print("Error: Invalid task file format. Expected array.")
-                    self.tasks = []
-                    return
-
-                # 验证每个任务的结构
-                self.tasks = []
-                for item in data:
-                    if isinstance(item, dict) and all(key in item for key in ['id', 'description', 'status']):
-                        try:
-                            self.tasks.append(Task.from_dict(item))
-                        except ValueError as e:
-                            # 跳过无效任务，继续加载其他任务
-                            print(f"Warning: Skipping invalid task: {e}")
-
-        except json.JSONDecodeError as e:
-            print(f"Error: Invalid JSON format in task file: {e}")
+            # 验证并加载每个任务
             self.tasks = []
-        except FileNotFoundError:
-            # 文件不存在（由_ensure_file_exists处理）
-            pass
+            for item in data:
+                if TaskValidator.validate_task_dict(item):
+                    try:
+                        self.tasks.append(Task.from_dict(item))
+                    except ValueError as e:
+                        # 跳过无效任务，继续加载其他任务
+                        print(ERR_SKIP_INVALID_TASK.format(error=e))
+
+        except ValueError as e:
+            # 格式错误，重置为空数组
+            print(str(e))
+            self.tasks = []
         except Exception as e:
-            print(f"Error: Unable to read task file: {e}")
+            # 其他错误
+            print(ERR_READ_FILE.format(error=e))
             sys.exit(1)
 
-    def save_tasks(self):
-        """保存任务到文件"""
+    def _save_tasks(self):
+        """保存任务到存储"""
         try:
             data = [task.to_dict() for task in self.tasks]
-
-            # 创建备份
-            if os.path.exists(self.filepath):
-                backup_path = self.filepath + '.backup'
-                with open(self.filepath, 'r', encoding='utf-8') as src:
-                    with open(backup_path, 'w', encoding='utf-8') as dst:
-                        dst.write(src.read())
-
-            # 保存数据
-            with open(self.filepath, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+            self.storage.save(data)
 
         except PermissionError:
-            print("Error: Permission denied. Unable to write task file.")
+            print(ERR_PERMISSION_DENIED)
             sys.exit(1)
         except OSError as e:
-            print(f"Error: Unable to write task file: {e}")
+            print(ERR_WRITE_FILE.format(error=e))
             sys.exit(1)
         except Exception as e:
-            print(f"Error: Unable to write task file: {e}")
+            print(ERR_WRITE_FILE.format(error=e))
             sys.exit(1)
 
     # ==================== 命令实现 ====================
@@ -143,22 +119,23 @@ class TaskManager:
     def add(self, description: str) -> str:
         """添加任务"""
         if not description.strip():
-            return "Error: Task description cannot be empty"
+            return MSG_EMPTY_DESCRIPTION
 
         new_id = max([task.id for task in self.tasks], default=0) + 1
         task = Task(new_id, description.strip())
         self.tasks.append(task)
-        self.save_tasks()
-        return f"Added: {task.description}"
+        self._save_tasks()
+
+        return MSG_ADDED.format(description=task.description)
 
     def list(self) -> List[str]:
         """列出所有任务"""
         if not self.tasks:
-            return ["No tasks found"]
+            return [MSG_NO_TASKS]
 
         result = []
         for task in self.tasks:
-            status = "done" if task.status == "done" else "pending"
+            status = STATUS_DONE if task.status == STATUS_DONE else STATUS_PENDING
             result.append(f"[{task.id}] {task.description} ({status})")
         return result
 
@@ -166,32 +143,34 @@ class TaskManager:
         """标记任务完成"""
         task = self._find_task(task_id)
         if not task:
-            return f"Error: Task {task_id} not found"
+            return MSG_TASK_NOT_FOUND.format(task_id=task_id)
 
-        if task.status == "done":
-            return f"Task {task_id} is already done"
+        if task.status == STATUS_DONE:
+            return MSG_TASK_ALREADY_DONE.format(task_id=task_id)
 
-        task.status = "done"
+        task.status = STATUS_DONE
         task.completedAt = datetime.now().isoformat() + "Z"
-        self.save_tasks()
-        return f"Task {task_id} marked as done"
+        self._save_tasks()
+
+        return MSG_TASK_MARKED_DONE.format(task_id=task_id)
 
     def delete(self, task_id: int) -> str:
         """删除任务"""
         task = self._find_task(task_id)
         if not task:
-            return f"Error: Task {task_id} not found"
+            return MSG_TASK_NOT_FOUND.format(task_id=task_id)
 
         self.tasks.remove(task)
-        self.save_tasks()
-        return f"Task {task_id} deleted"
+        self._save_tasks()
+
+        return MSG_TASK_DELETED.format(task_id=task_id)
 
     def clear(self) -> str:
         """清除已完成的任务"""
-        completed_count = len([t for t in self.tasks if t.status == "done"])
-        self.tasks = [t for t in self.tasks if t.status == "pending"]
-        self.save_tasks()
-        return "Cleared all completed tasks"
+        self.tasks = [t for t in self.tasks if t.status == STATUS_PENDING]
+        self._save_tasks()
+
+        return MSG_CLEARED_ALL
 
     # ==================== 辅助方法 ====================
 
@@ -217,8 +196,8 @@ Commands:
 def main():
     """主入口函数"""
     if len(sys.argv) < 2:
-        print("Error: No command specified")
-        print("Use 'help' for usage information")
+        print(MSG_NO_COMMAND)
+        print(MSG_HELP_HINT)
         sys.exit(1)
 
     command = sys.argv[1].lower()
@@ -226,42 +205,51 @@ def main():
 
     if command == "add":
         if len(sys.argv) < 3:
-            print("Error: Task description is required")
-            print("Usage: task-cli add <description>")
+            print(MSG_DESC_REQUIRED)
+            print(MSG_DESC_USAGE)
             sys.exit(1)
+
         description = " ".join(sys.argv[2:])
         print(manager.add(description))
+
     elif command == "list":
         for line in manager.list():
             print(line)
+
     elif command == "done":
         if len(sys.argv) < 3:
-            print("Error: Task ID is required")
-            print("Usage: task-cli done <id>")
+            print(MSG_TASK_ID_REQUIRED)
+            print(MSG_TASK_ID_USAGE)
             sys.exit(1)
+
         try:
             task_id = int(sys.argv[2])
             print(manager.done(task_id))
         except ValueError:
-            print("Error: Task ID must be a number")
+            print(MSG_TASK_ID_INVALID)
             sys.exit(1)
+
     elif command == "delete":
         if len(sys.argv) < 3:
-            print("Error: Task ID is required")
-            print("Usage: task-cli delete <id>")
+            print(MSG_TASK_ID_REQUIRED)
+            print(MSG_TASK_ID_USAGE)
             sys.exit(1)
+
         try:
             task_id = int(sys.argv[2])
             print(manager.delete(task_id))
         except ValueError:
-            print("Error: Task ID must be a number")
+            print(MSG_TASK_ID_INVALID)
             sys.exit(1)
+
     elif command == "clear":
         print(manager.clear())
+
     elif command == "help" or command == "--help" or command == "-h":
         print(manager.help())
+
     else:
-        print(f"Error: Unknown command '{command}'. Use 'help' for usage.")
+        print(MSG_UNKNOWN_COMMAND.format(command=command))
 
 
 if __name__ == "__main__":

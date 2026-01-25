@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务管理器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .input-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        #taskInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        #taskInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        #addButton {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #addButton:hover {
+            background: #5568d3;
+        }
+
+        .task-list {
+            list-style: none;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.3s;
+        }
+
+        .task-item:hover {
+            background: #f8f9fa;
+        }
+
+        .task-item.completed {
+            background: #f0fff4;
+        }
+
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            cursor: pointer;
+        }
+
+        .task-text {
+            flex: 1;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .task-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-right: 12px;
+        }
+
+        .task-status.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .task-status.done {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .delete-button {
+            padding: 6px 12px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .delete-button:hover {
+            background: #c82333;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+
+        .clear-section {
+            margin-top: 20px;
+            text-align: right;
+        }
+
+        #clearButton {
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        #clearButton:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📝 任务管理器</h1>
+
+        <div class="input-section">
+            <input type="text" id="taskInput" placeholder="输入新任务..." />
+            <button id="addButton">添加任务</button>
+        </div>
+
+        <ul id="taskList" class="task-list"></ul>
+
+        <div id="emptyState" class="empty-state">
+            暂无任务，添加一个吧！
+        </div>
+
+        <div class="clear-section">
+            <button id="clearButton">清除已完成任务</button>
+        </div>
+    </div>
+
+    <script>
+        // 模拟任务数据存储
+        let tasks = [];
+        let nextId = 1;
+
+        // 添加任务
+        function addTask(description) {
+            const task = {
+                id: nextId++,
+                description: description,
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+            tasks.push(task);
+            renderTasks();
+            return task;
+        }
+
+        // 标记任务完成
+        function toggleTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task.status = task.status === 'pending' ? 'done' : 'pending';
+                renderTasks();
+            }
+        }
+
+        // 删除任务
+        function deleteTask(taskId) {
+            tasks = tasks.filter(t => t.id !== taskId);
+            renderTasks();
+        }
+
+        // 清除已完成任务
+        function clearCompleted() {
+            const clearedCount = tasks.filter(t => t.status === 'done').length;
+            tasks = tasks.filter(t => t.status === 'pending');
+            renderTasks();
+            return clearedCount;
+        }
+
+        // 渲染任务列表
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            const emptyState = document.getElementById('emptyState');
+
+            taskList.innerHTML = '';
+
+            if (tasks.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            tasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = `task-item ${task.status === 'done' ? 'completed' : ''}`;
+                li.setAttribute('data-task-id', task.id);
+
+                li.innerHTML = `
+                    <input type="checkbox" class="task-checkbox" ${task.status === 'done' ? 'checked' : ''}>
+                    <span class="task-text">${task.description}</span>
+                    <span class="task-status ${task.status}">${task.status === 'pending' ? '待完成' : '已完成'}</span>
+                    <button class="delete-button">删除</button>
+                `;
+
+                // 复选框点击事件
+                const checkbox = li.querySelector('.task-checkbox');
+                checkbox.addEventListener('change', () => toggleTask(task.id));
+
+                // 删除按钮点击事件
+                const deleteBtn = li.querySelector('.delete-button');
+                deleteBtn.addEventListener('click', () => deleteTask(task.id));
+
+                taskList.appendChild(li);
+            });
+        }
+
+        // 添加按钮点击事件
+        document.getElementById('addButton').addEventListener('click', () => {
+            const input = document.getElementById('taskInput');
+            const description = input.value.trim();
+            if (description) {
+                addTask(description);
+                input.value = '';
+            } else {
+                alert('请输入任务描述');
+            }
+        });
+
+        // 输入框回车事件
+        document.getElementById('taskInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('addButton').click();
+            }
+        });
+
+        // 清除按钮点击事件
+        document.getElementById('clearButton').addEventListener('click', () => {
+            const clearedCount = clearCompleted();
+            if (clearedCount > 0) {
+                alert(`已清除 ${clearedCount} 个已完成任务`);
+            } else {
+                alert('没有已完成的任务');
+            }
+        });
+
+        // 初始化
+        renderTasks();
+    </script>
+</body>
+</html>
