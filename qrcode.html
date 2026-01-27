@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务管理器 - 扫码访问</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .qrcode-container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+        }
+
+        #qrcode img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .url-box {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+
+        .url-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .url {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .copy-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .copy-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .copy-btn:active {
+            transform: scale(0.95);
+        }
+
+        .instructions {
+            margin-top: 20px;
+            text-align: left;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .instructions h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 任务管理器</h1>
+        <p class="subtitle">扫描二维码访问手机端</p>
+
+        <div class="qrcode-container">
+            <div id="qrcode"></div>
+        </div>
+
+        <div class="url-box">
+            <div class="url-label">访问地址</div>
+            <div class="url" id="url">正在获取...</div>
+        </div>
+
+        <button class="copy-btn" onclick="copyUrl()">复制地址</button>
+
+        <div class="instructions">
+            <h3>📋 使用说明</h3>
+            <ol>
+                <li>确保手机和电脑在同一WiFi网络</li>
+                <li>用手机扫描上方二维码</li>
+                <li>或直接在手机浏览器输入地址</li>
+                <li>添加到主屏幕，像APP一样使用</li>
+            </ol>
+        </div>
+
+        <div class="warning">
+            ⚠️ 提示：如无法访问，请确保已启动Flask服务
+        </div>
+    </div>
+
+    <script>
+        // 获取本机IP
+        const ip = window.location.hostname;
+        const url = `http://${ip}:5000`;
+
+        // 显示URL
+        document.getElementById('url').textContent = url;
+
+        // 生成二维码
+        QRCode.toCanvas(url, { width: 180, margin: 2 }, function(error, canvas) {
+            if (error) {
+                console.error(error);
+                return;
+            }
+            const container = document.getElementById('qrcode');
+            container.innerHTML = '';
+            container.appendChild(canvas);
+        });
+
+        // 复制URL
+        function copyUrl() {
+            const urlText = document.getElementById('url').textContent;
+            navigator.clipboard.writeText(urlText).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = '已复制！';
+                setTimeout(() => {
+                    btn.textContent = '复制地址';
+                }, 2000);
+            }).catch(err => {
+                alert('复制失败，请手动复制地址');
+            });
+        }
+    </script>
+</body>
+</html>

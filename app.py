@@ -63,6 +63,9 @@ def sort_tasks(tasks):
 @app.route('/')
 def index():
     """首页"""
+    print(f"[DEBUG] Template folder: {app.template_folder}")
+    print(f"[DEBUG] Root path: {app.root_path}")
+    print(f"[DEBUG] Full template path: {app.root_path}/{app.template_folder}/index.html")
     return render_template('index.html', ip=get_local_ip())
 
 
