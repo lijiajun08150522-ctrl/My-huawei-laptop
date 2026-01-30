@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贪吃蛇开发过程 - 动画演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2E7D32;
+            margin-bottom: 20px;
+            font-size: 36px;
+        }
+
+        .stage-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stage {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 4px solid #4CAF50;
+            transition: all 0.3s;
+        }
+
+        .stage.active {
+            background: #e8f5e9;
+            border-left-color: #2E7D32;
+        }
+
+        .stage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .stage-number {
+            background: #4CAF50;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .stage.active .stage-number {
+            background: #2E7D32;
+        }
+
+        .stage-title {
+            font-size: 20px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .stage-content {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .canvas-wrapper {
+            background: #1E1E1E;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        canvas {
+            display: block;
+            border-radius: 5px;
+        }
+
+        .stage-description {
+            flex: 1;
+        }
+
+        .stage-description h4 {
+            color: #2E7D32;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .stage-description ul {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.8;
+            padding-left: 20px;
+        }
+
+        .progress-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .progress-dot {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .progress-dot.active {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .progress-dot.completed {
+            background: #2E7D32;
+            color: white;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info-panel {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .info-panel h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .info-panel p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .timeline {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            overflow-x: auto;
+        }
+
+        .timeline-item {
+            min-width: 150px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .timeline-item.active {
+            border-color: #4CAF50;
+            background: #e8f5e9;
+        }
+
+        .timeline-item h4 {
+            color: #2E7D32;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+
+        .timeline-item p {
+            color: #666;
+            font-size: 12px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐍 贪吃蛇开发过程 - 从0到1</h1>
+
+        <div class="progress-bar">
+            <div class="progress-dot completed" onclick="showStage(1)">1</div>
+            <div class="progress-dot completed" onclick="showStage(2)">2</div>
+            <div class="progress-dot completed" onclick="showStage(3)">3</div>
+            <div class="progress-dot completed" onclick="showStage(4)">4</div>
+            <div class="progress-dot active" onclick="showStage(5)">5</div>
+        </div>
+
+        <div class="timeline">
+            <div class="timeline-item active" onclick="showStage(1)">
+                <h4>阶段1</h4>
+                <p>基础框架</p>
+            </div>
+            <div class="timeline-item active" onclick="showStage(2)">
+                <h4>阶段2</h4>
+                <p>游戏逻辑</p>
+            </div>
+            <div class="timeline-item active" onclick="showStage(3)">
+                <h4>阶段3</h4>
+                <p>食物系统</p>
+            </div>
+            <div class="timeline-item active" onclick="showStage(4)">
+                <h4>阶段4</h4>
+                <p>得分系统</p>
+            </div>
+            <div class="timeline-item active" onclick="showStage(5)">
+                <h4>阶段5</h4>
+                <p>完整游戏</p>
+            </div>
+        </div>
+
+        <div class="stage-container" id="stages">
+            <!-- 阶段1：基础框架 -->
+            <div class="stage fade-in" id="stage1">
+                <div class="stage-header">
+                    <span class="stage-number">阶段 1</span>
+                    <span class="stage-title">🏗️ 基础框架搭建</span>
+                </div>
+                <div class="stage-content">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas1" width="300" height="200"></canvas>
+                    </div>
+                    <div class="stage-description">
+                        <h4>实现内容</h4>
+                        <ul>
+                            <li>✅ 创建HTML5 Canvas画布</li>
+                            <li>✅ 设计游戏区域（600x400）</li>
+                            <li>✅ 绘制网格背景</li>
+                            <li>✅ 建立基础数据结构</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段2：游戏逻辑 -->
+            <div class="stage fade-in" id="stage2">
+                <div class="stage-header">
+                    <span class="stage-number">阶段 2</span>
+                    <span class="stage-title">🎮 游戏核心逻辑</span>
+                </div>
+                <div class="stage-content">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas2" width="300" height="200"></canvas>
+                    </div>
+                    <div class="stage-description">
+                        <h4>实现内容</h4>
+                        <ul>
+                            <li>✅ 蛇的数据结构（数组）</li>
+                            <li>✅ 蛇的移动逻辑</li>
+                            <li>✅ 四个方向控制（↑↓←→）</li>
+                            <li>✅ 防止掉头机制</li>
+                            <li>✅ 游戏循环</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段3：食物系统 -->
+            <div class="stage fade-in" id="stage3">
+                <div class="stage-header">
+                    <span class="stage-number">阶段 3</span>
+                    <span class="stage-title">🍎 食物系统</span>
+                </div>
+                <div class="stage-content">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas3" width="300" height="200"></canvas>
+                    </div>
+                    <div class="stage-description">
+                        <h4>实现内容</h4>
+                        <ul>
+                            <li>✅ 食物随机生成</li>
+                            <li>✅ 避免食物与蛇身重叠</li>
+                            <li>✅ 碰撞检测（吃食物）</li>
+                            <li>✅ 蛇身增长逻辑</li>
+                            <li>✅ 新食物自动生成</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段4：得分系统 -->
+            <div class="stage fade-in" id="stage4">
+                <div class="stage-header">
+                    <span class="stage-number">阶段 4</span>
+                    <span class="stage-title">📊 得分与关卡系统</span>
+                </div>
+                <div class="stage-content">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas4" width="300" height="200"></canvas>
+                    </div>
+                    <div class="stage-description">
+                        <h4>实现内容</h4>
+                        <ul>
+                            <li>✅ 得分计算（+10/食物）</li>
+                            <li>✅ 关卡升级（5食物/级）</li>
+                            <li>✅ 关卡奖励（+50/级）</li>
+                            <li>✅ 速度递增（200ms→60ms）</li>
+                            <li>✅ 最高分记录（localStorage）</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 阶段5：完整游戏 -->
+            <div class="stage active fade-in" id="stage5">
+                <div class="stage-header">
+                    <span class="stage-number">阶段 5</span>
+                    <span class="stage-title">🎉 完整游戏与UI</span>
+                </div>
+                <div class="stage-content">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas5" width="300" height="200"></canvas>
+                    </div>
+                    <div class="stage-description">
+                        <h4>实现内容</h4>
+                        <ul>
+                            <li>✅ 完整的游戏UI界面</li>
+                            <li>✅ 碰撞检测（撞墙/撞自己）</li>
+                            <li>✅ 游戏结束逻辑</li>
+                            <li>✅ 开始/暂停/重新开始</li>
+                            <li>✅ 响应式设计（移动端）</li>
+                            <li>✅ 动画效果和视觉反馈</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="prevBtn" onclick="changeStage(-1)" disabled>← 上一步</button>
+            <button class="btn" id="playBtn" onclick="autoPlay()">▶ 自动播放</button>
+            <button class="btn" id="nextBtn" onclick="changeStage(1)">下一步 →</button>
+        </div>
+
+        <div class="info-panel">
+            <h3>💡 使用提示</h3>
+            <p>点击上方进度条或时间线跳转到不同阶段，或使用"自动播放"观看完整开发过程。每个阶段展示开发的关键功能和实现细节。</p>
+        </div>
+    </div>
+
+    <script>
+        let currentStage = 5;
+        const totalStages = 5;
+        let isPlaying = false;
+        let playInterval = null;
+
+        // 画布配置
+        const GRID_SIZE = 20;
+        const CANVAS_WIDTH = 300;
+        const CANVAS_HEIGHT = 200;
+        const COLS = CANVAS_WIDTH / GRID_SIZE;
+        const ROWS = CANVAS_HEIGHT / GRID_SIZE;
+
+        // 游戏状态
+        const stages = {
+            1: {
+                name: '基础框架',
+                hasSnake: false,
+                hasFood: false,
+                hasScore: false
+            },
+            2: {
+                name: '游戏逻辑',
+                hasSnake: true,
+                hasFood: false,
+                hasScore: false
+            },
+            3: {
+                name: '食物系统',
+                hasSnake: true,
+                hasFood: true,
+                hasScore: false
+            },
+            4: {
+                name: '得分系统',
+                hasSnake: true,
+                hasFood: true,
+                hasScore: true
+            },
+            5: {
+                name: '完整游戏',
+                hasSnake: true,
+                hasFood: true,
+                hasScore: true
+            }
+        };
+
+        // 初始化画布
+        function initCanvas(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+
+            // 清空画布
+            ctx.fillStyle = '#1E1E1E';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // 绘制网格
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i <= COLS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * GRID_SIZE, 0);
+                ctx.lineTo(i * GRID_SIZE, CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+            for (let i = 0; i <= ROWS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * GRID_SIZE);
+                ctx.lineTo(CANVAS_WIDTH, i * GRID_SIZE);
+                ctx.stroke();
+            }
+
+            return { canvas, ctx };
+        }
+
+        // 绘制蛇
+        function drawSnake(ctx, snake) {
+            snake.forEach((segment, index) => {
+                if (index === 0) {
+                    ctx.fillStyle = '#2E7D32'; // 蛇头
+                } else {
+                    ctx.fillStyle = '#4CAF50'; // 蛇身
+                }
+                ctx.fillRect(
+                    segment.x * GRID_SIZE + 1,
+                    segment.y * GRID_SIZE + 1,
+                    GRID_SIZE - 2,
+                    GRID_SIZE - 2
+                );
+            });
+        }
+
+        // 绘制食物
+        function drawFood(ctx, food) {
+            const centerX = food.x * GRID_SIZE + GRID_SIZE / 2;
+            const centerY = food.y * GRID_SIZE + GRID_SIZE / 2;
+            const radius = GRID_SIZE / 2 - 2;
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = '#F44336';
+            ctx.fill();
+
+            // 闪烁效果
+            ctx.beginPath();
+            ctx.arc(centerX - 2, centerY - 2, radius / 3, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fill();
+        }
+
+        // 绘制得分信息
+        function drawScore(ctx, stage) {
+            ctx.fillStyle = '#4CAF50';
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText('Score: 0', 10, 20);
+
+            if (stage >= 4) {
+                ctx.fillText('Level: 1', 10, 40);
+            }
+        }
+
+        // 更新特定阶段的画布
+        function updateStageCanvas(stageNum) {
+            const { ctx } = initCanvas(`canvas${stageNum}`);
+            const stage = stages[stageNum];
+
+            if (stage.hasSnake) {
+                let snake;
+                if (stageNum === 2) {
+                    // 阶段2：简单的蛇
+                    snake = [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 3, y: 5 }];
+                } else {
+                    // 阶段3-5：更长的蛇
+                    snake = [
+                        { x: 7, y: 5 }, { x: 6, y: 5 }, { x: 5, y: 5 },
+                        { x: 4, y: 5 }, { x: 3, y: 5 }
+                    ];
+                }
+                drawSnake(ctx, snake);
+            }
+
+            if (stage.hasFood) {
+                const food = { x: 10, y: 5 };
+                drawFood(ctx, food);
+            }
+
+            if (stage.hasScore) {
+                drawScore(ctx, stageNum);
+            }
+
+            // 添加阶段标签
+            ctx.fillStyle = '#666';
+            ctx.font = '12px Arial';
+            ctx.fillText(`Stage ${stageNum}: ${stage.name}`, 10, CANVAS_HEIGHT - 10);
+        }
+
+        // 更新所有画布
+        function updateAllCanvases() {
+            for (let i = 1; i <= totalStages; i++) {
+                updateStageCanvas(i);
+            }
+        }
+
+        // 显示特定阶段
+        function showStage(stageNum) {
+            currentStage = stageNum;
+
+            // 更新进度条
+            document.querySelectorAll('.progress-dot').forEach((dot, index) => {
+                dot.classList.remove('active', 'completed');
+                if (index < stageNum) {
+                    dot.classList.add('completed');
+                } else if (index === stageNum - 1) {
+                    dot.classList.add('active');
+                }
+            });
+
+            // 更新时间线
+            document.querySelectorAll('.timeline-item').forEach((item, index) => {
+                item.classList.remove('active');
+                if (index < stageNum) {
+                    item.classList.add('active');
+                }
+            });
+
+            // 更新阶段显示
+            document.querySelectorAll('.stage').forEach((stage, index) => {
+                stage.classList.remove('active');
+                if (index === stageNum - 1) {
+                    stage.classList.add('active');
+                }
+            });
+
+            // 更新按钮状态
+            document.getElementById('prevBtn').disabled = (currentStage === 1);
+            document.getElementById('nextBtn').disabled = (currentStage === totalStages);
+
+            // 更新所有画布
+            updateAllCanvases();
+        }
+
+        // 切换阶段
+        function changeStage(direction) {
+            const newStage = currentStage + direction;
+            if (newStage >= 1 && newStage <= totalStages) {
+                showStage(newStage);
+            }
+        }
+
+        // 自动播放
+        function autoPlay() {
+            if (isPlaying) {
+                stopAutoPlay();
+            } else {
+                startAutoPlay();
+            }
+        }
+
+        function startAutoPlay() {
+            isPlaying = true;
+            document.getElementById('playBtn').textContent = '⏸ 暂停';
+
+            playInterval = setInterval(() => {
+                if (currentStage < totalStages) {
+                    changeStage(1);
+                } else {
+                    stopAutoPlay();
+                }
+            }, 3000); // 每3秒切换一次
+        }
+
+        function stopAutoPlay() {
+            isPlaying = false;
+            document.getElementById('playBtn').textContent = '▶ 自动播放';
+            if (playInterval) {
+                clearInterval(playInterval);
+                playInterval = null;
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            showStage(1);
+            updateAllCanvases();
+        });
+    </script>
+</body>
+</html>
