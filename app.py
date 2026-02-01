@@ -69,6 +69,24 @@ def index():
     return render_template('index.html', ip=get_local_ip())
 
 
+@app.route('/game')
+def game():
+    """贪吃蛇游戏页"""
+    return app.send_static_file('../snake_game.html')
+
+
+@app.route('/tasks')
+def tasks():
+    """任务管理器页"""
+    return app.send_static_file('index.html')
+
+
+@app.route('/presentation')
+def presentation():
+    """实训报告页"""
+    return app.send_static_file('../presentation.html')
+
+
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
     """获取所有任务"""
