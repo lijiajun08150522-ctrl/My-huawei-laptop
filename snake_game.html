@@ -48,6 +48,29 @@
             color: white;
         }
 
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .header-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
         .high-score {
             font-size: 18px;
             font-weight: bold;
@@ -233,7 +256,11 @@
 
         <div class="header">
             <div>🎮 经典游戏</div>
-            <div class="high-score">🏆 最高分: <span id="highScore">0</span></div>
+            <div class="header-buttons">
+                <a href="/ranking" class="header-btn">🏆 排行榜</a>
+                <button class="header-btn" onclick="changePlayerName()">👤 修改名称</button>
+                <div class="high-score">🏆 最高分: <span id="highScore">0</span></div>
+            </div>
         </div>
 
         <div class="game-wrapper" style="position: relative;">
@@ -349,8 +376,70 @@
             gameState.highScore = parseInt(localStorage.getItem('snakeGameHighScore')) || 0;
             highScoreElement.textContent = gameState.highScore;
 
+            // 读取玩家名称
+            gameState.playerName = localStorage.getItem('snakeGamePlayerName') || '玩家';
+
             // 绘制初始界面
             draw();
+        }
+
+        // ==================== 排行榜 ====================
+        async function saveScoreToRanking(score, level) {
+            // 如果分数为0，不保存
+            if (score <= 0) return;
+
+            // 获取玩家名称
+            let playerName = gameState.playerName;
+
+            // 如果没有设置过玩家名称，提示输入
+            if (!playerName || playerName === '玩家') {
+                playerName = prompt('请输入您的名称（用于排行榜）:', '玩家' + Math.floor(Math.random() * 1000));
+
+                if (!playerName || playerName.trim() === '') {
+                    playerName = '匿名玩家' + Math.floor(Math.random() * 10000);
+                }
+
+                // 保存玩家名称
+                gameState.playerName = playerName;
+                localStorage.setItem('snakeGamePlayerName', playerName);
+            }
+
+            try {
+                // 发送到后端API
+                const response = await fetch('/api/snake/ranking', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        player_name: playerName,
+                        score: score,
+                        level: level
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('分数已保存到排行榜:', data);
+
+                    // 显示排名提示（可选）
+                    if (data.player_best) {
+                        console.log(`您的排名: 第 ${data.player_best.rank} 名`);
+                    }
+                }
+            } catch (error) {
+                console.error('保存分数失败:', error);
+            }
+        }
+
+        function changePlayerName() {
+            const newName = prompt('请输入您的新名称:', gameState.playerName || '玩家');
+
+            if (newName && newName.trim() !== '') {
+                gameState.playerName = newName.trim();
+                localStorage.setItem('snakeGamePlayerName', gameState.playerName);
+                alert(`名称已修改为: ${gameState.playerName}`);
+            }
         }
 
         // ==================== 游戏控制 ====================
@@ -404,6 +493,9 @@
                 localStorage.setItem('snakeGameHighScore', gameState.highScore);
                 highScoreElement.textContent = gameState.highScore;
             }
+
+            // 保存分数到排行榜
+            saveScoreToRanking(gameState.score, gameState.level);
 
             // 显示游戏结束界面
             finalScoreElement.textContent = gameState.score;

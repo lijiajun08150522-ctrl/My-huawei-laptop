@@ -9,6 +9,7 @@ import socket
 
 from task import TaskManager
 from analytics import TaskAnalyzerService
+from snake_ranking import ranking
 from constants import (
     STATUS_PENDING, STATUS_DONE,
     PRIORITY_HIGH, PRIORITY_MEDIUM, PRIORITY_LOW,
@@ -73,6 +74,12 @@ def index():
 def game():
     """贪吃蛇游戏页"""
     return app.send_static_file('../snake_game.html')
+
+
+@app.route('/ranking')
+def ranking_page():
+    """贪吃蛇排行榜页"""
+    return app.send_static_file('../snake_ranking.html')
 
 
 @app.route('/tasks')
@@ -187,6 +194,97 @@ def export_report():
         'success': True,
         'message': result,
         'filepath': filepath
+    })
+
+
+# ==================== 贪吃蛇排行榜 API ====================
+
+@app.route('/api/snake/ranking', methods=['GET'])
+def get_snake_ranking():
+    """获取贪吃蛇排行榜"""
+    limit = request.args.get('limit', 10, type=int)
+    limit = min(limit, 100)  # 最多返回100条
+
+    records = ranking.get_ranking(limit=limit)
+    statistics = ranking.get_statistics()
+
+    return jsonify({
+        'success': True,
+        'ranking': records,
+        'statistics': statistics
+    })
+
+
+@app.route('/api/snake/ranking', methods=['POST'])
+def add_snake_score():
+    """添加贪吃蛇分数到排行榜"""
+    data = request.get_json()
+
+    if not data or 'player_name' not in data or 'score' not in data:
+        return jsonify({
+            'success': False,
+            'message': '请提供玩家名称和分数'
+        }), 400
+
+    player_name = data.get('player_name', '').strip()
+    score = data.get('score', 0)
+    level = data.get('level', 1)
+
+    if not player_name:
+        return jsonify({
+            'success': False,
+            'message': '玩家名称不能为空'
+        }), 400
+
+    if not isinstance(score, int) or score < 0:
+        return jsonify({
+            'success': False,
+            'message': '分数必须是非负整数'
+        }), 400
+
+    # 添加分数到排行榜
+    success = ranking.add_score(player_name, score, level)
+
+    if not success:
+        return jsonify({
+            'success': False,
+            'message': '保存分数失败'
+        }), 500
+
+    # 获取玩家排名
+    player_best = ranking.get_player_best(player_name)
+
+    return jsonify({
+        'success': True,
+        'message': '分数已保存',
+        'player_best': player_best
+    })
+
+
+@app.route('/api/snake/player/<player_name>', methods=['GET'])
+def get_snake_player(player_name):
+    """获取玩家最高分"""
+    record = ranking.get_player_best(player_name)
+
+    if not record:
+        return jsonify({
+            'success': False,
+            'message': '未找到玩家记录'
+        }), 404
+
+    return jsonify({
+        'success': True,
+        'record': record
+    })
+
+
+@app.route('/api/snake/statistics', methods=['GET'])
+def get_snake_statistics():
+    """获取排行榜统计信息"""
+    stats = ranking.get_statistics()
+    return jsonify({
+        'success': True,
+        'statistics': stats
     })
 
 
