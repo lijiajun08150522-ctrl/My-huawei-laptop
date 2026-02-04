@@ -1,15 +1,18 @@
 """
 Flask任务管理器Web服务端
 基于task.py逻辑，提供REST API和Web界面
+集成JWT认证、CSRF防护、XSS防护等安全功能
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 from datetime import datetime
 import socket
 
 from task import TaskManager
 from analytics import TaskAnalyzerService
 from snake_ranking import ranking
+from auth import auth
+from security import security, jwt_required, csrf_protected, init_security
 from constants import (
     STATUS_PENDING, STATUS_DONE,
     PRIORITY_HIGH, PRIORITY_MEDIUM, PRIORITY_LOW,
@@ -18,6 +21,9 @@ from constants import (
 )
 
 app = Flask(__name__)
+
+# 初始化安全功能
+init_security(app)
 
 # 初始化任务管理器
 manager = TaskManager()
@@ -298,6 +304,141 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({'success': False, 'message': '服务器内部错误'}), 500
+
+
+# ==================== 安全功能 API ====================
+
+@app.route('/api/auth/csrf-token', methods=['GET'])
+def get_csrf_token():
+    """获取CSRF Token"""
+    token = security.get_csrf_token()
+    return jsonify({
+        'success': True,
+        'csrf_token': token
+    })
+
+
+@app.route('/api/auth/register', methods=['POST'])
+def register():
+    """用户注册"""
+    data = request.get_json()
+
+    # XSS防护：清理输入
+    username = security.sanitize_input(data.get('username', ''))
+    password = security.sanitize_input(data.get('password', ''))
+    email = security.sanitize_input(data.get('email', ''))
+
+    # 注册用户
+    result = auth.register(username, password, email)
+
+    if result['success']:
+        return jsonify(result), 201
+    else:
+        return jsonify(result), 400
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    """用户登录"""
+    data = request.get_json()
+
+    # XSS防护：清理输入
+    username = security.sanitize_input(data.get('username', ''))
+    password = security.sanitize_input(data.get('password', ''))
+
+    # 用户登录
+    result = auth.login(username, password)
+
+    if result['success']:
+        return jsonify(result), 200
+    else:
+        return jsonify(result), 401
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+@jwt_required
+def logout():
+    """用户登出"""
+    token = request.headers.get('Authorization', '').split(' ')[-1]
+    result = auth.logout(token)
+
+    return jsonify(result)
+
+
+@app.route('/api/auth/refresh', methods=['POST'])
+def refresh_token():
+    """刷新Token"""
+    data = request.get_json()
+    token = data.get('token', '')
+
+    new_token = auth.refresh_token(token)
+
+    if new_token:
+        return jsonify({
+            'success': True,
+            'token': new_token
+        }), 200
+    else:
+        return jsonify({
+            'success': False,
+            'message': 'Token无效或已过期'
+        }), 401
+
+
+@app.route('/api/auth/profile', methods=['GET'])
+@jwt_required
+def get_profile():
+    """获取当前用户信息"""
+    username = getattr(request, 'user', {}).get('username')
+    user_info = auth.get_user_info(username)
+
+    if user_info:
+        return jsonify({
+            'success': True,
+            'user': user_info
+        }), 200
+    else:
+        return jsonify({
+            'success': False,
+            'message': '用户不存在'
+        }), 404
+
+
+@app.route('/api/auth/change-password', methods=['PUT'])
+@jwt_required
+def change_password():
+    """修改密码"""
+    data = request.get_json()
+
+    # XSS防护：清理输入
+    old_password = security.sanitize_input(data.get('old_password', ''))
+    new_password = security.sanitize_input(data.get('new_password', ''))
+
+    username = getattr(request, 'user', {}).get('username')
+    result = auth.change_password(username, old_password, new_password)
+
+    if result['success']:
+        return jsonify(result), 200
+    else:
+        return jsonify(result), 400
+
+
+@app.route('/api/auth/users', methods=['GET'])
+@jwt_required
+@admin_required
+def get_all_users():
+    """获取所有用户列表（仅管理员）"""
+    users_list = []
+    for username, user_data in auth.users.items():
+        user_info = user_data.copy()
+        user_info.pop('password', None)  # 移除密码
+        user_info['username'] = username
+        users_list.append(user_info)
+
+    return jsonify({
+        'success': True,
+        'users': users_list
+    })
 
 
 # ==================== 启动服务 ====================
