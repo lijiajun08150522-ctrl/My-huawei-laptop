@@ -53,6 +53,83 @@
             font-weight: bold;
         }
 
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .header-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .header-btn:active {
+            transform: translateY(0);
+        }
+
+        .ai-skin-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .skin-loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            border-radius: 10px;
+            z-index: 150;
+        }
+
+        .skin-loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .loading-progress {
+            color: #667eea;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
         .game-canvas {
             display: block;
             margin: 0 auto 20px;
@@ -233,7 +310,11 @@
 
         <div class="header">
             <div>🎮 经典游戏</div>
-            <div class="high-score">🏆 最高分: <span id="highScore">0</span></div>
+            <div class="header-buttons">
+                <a href="/ranking" class="header-btn">🏆 排行榜</a>
+                <button class="header-btn ai-skin-btn" onclick="generateAISkin()">✨ AI 生成皮肤</button>
+                <div class="high-score">🏆 最高分: <span id="highScore">0</span></div>
+            </div>
         </div>
 
         <div class="game-wrapper" style="position: relative;">
@@ -263,6 +344,12 @@
             <div id="levelUp" class="level-up">
                 🚀 升级到 Level <span id="newLevel">2</span>!
                 <div style="font-size: 20px; margin-top: 10px;">速度提升!</div>
+            </div>
+
+            <div id="skinLoadingOverlay" class="skin-loading-overlay">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">正在生成 AI 皮肤...</div>
+                <div class="loading-progress" id="loadingProgress">准备中...</div>
             </div>
         </div>
 
@@ -325,7 +412,9 @@
             isPaused: false,
             highScore: 0,
             foodEaten: 0, // 当前关卡吃的食物数
-            gameLoop: null
+            gameLoop: null,
+            skinTexture: null, // AI 生成的皮肤纹理
+            isSkinLoading: false // 是否正在加载皮肤
         };
 
         // ==================== DOM 元素 ====================
@@ -348,6 +437,12 @@
             // 读取最高分
             gameState.highScore = parseInt(localStorage.getItem('snakeGameHighScore')) || 0;
             highScoreElement.textContent = gameState.highScore;
+
+            // 读取保存的皮肤
+            const savedSkin = localStorage.getItem('snakeGameSkin');
+            if (savedSkin) {
+                loadSkinTexture(savedSkin);
+            }
 
             // 绘制初始界面
             draw();
@@ -561,11 +656,18 @@
 
         function drawSnake() {
             gameState.snake.forEach((segment, index) => {
-                // 蛇头和蛇身不同颜色
-                if (index === 0) {
-                    ctx.fillStyle = '#2E7D32'; // 深绿色蛇头
+                // 使用 AI 生成的皮肤纹理或默认颜色
+                if (gameState.skinTexture) {
+                    // 使用纹理绘制
+                    const pattern = ctx.createPattern(gameState.skinTexture, 'repeat');
+                    ctx.fillStyle = pattern;
                 } else {
-                    ctx.fillStyle = '#4CAF50'; // 浅绿色蛇身
+                    // 蛇头和蛇身不同颜色
+                    if (index === 0) {
+                        ctx.fillStyle = '#2E7D32'; // 深绿色蛇头
+                    } else {
+                        ctx.fillStyle = '#4CAF50'; // 浅绿色蛇身
+                    }
                 }
 
                 // 绘制蛇段
@@ -715,6 +817,164 @@
             }
 
             gameState.nextDirection = { x, y };
+        }
+
+        // ==================== AI 皮肤生成 ====================
+        async function generateAISkin() {
+            // 如果正在加载，阻止重复点击
+            if (gameState.isSkinLoading) {
+                return;
+            }
+
+            // 显示加载动画
+            showSkinLoading();
+
+            try {
+                // 调用 AI 皮肤生成 API
+                const response = await fetch('/api/agent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: 'a cute cartoon snake skin with colorful pattern',
+                        style: 'cartoon',
+                        width: 512,
+                        height: 512,
+                        player_id: 'player_' + Math.floor(Math.random() * 10000)
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('生成失败: ' + response.statusText);
+                }
+
+                const result = await response.json();
+
+                if (result.success && result.image_url) {
+                    // 轮询查询生成状态
+                    await pollSkinStatus(result.task_id);
+                } else {
+                    throw new Error(result.message || '生成失败');
+                }
+
+            } catch (error) {
+                console.error('AI 皮肤生成失败:', error);
+                alert('AI 皮肤生成失败: ' + error.message);
+                hideSkinLoading();
+            }
+        }
+
+        async function pollSkinStatus(taskId) {
+            const maxAttempts = 60; // 最多轮询 60 次（约 60 秒）
+            let attempts = 0;
+
+            const pollInterval = setInterval(async () => {
+                attempts++;
+
+                try {
+                    const response = await fetch(`/api/agent/status/${taskId}`);
+
+                    if (!response.ok) {
+                        throw new Error('查询状态失败');
+                    }
+
+                    const result = await response.json();
+
+                    // 更新进度
+                    if (result.progress !== undefined) {
+                        updateLoadingProgress(result.progress);
+                    }
+
+                    // 检查是否完成
+                    if (result.status === 'completed') {
+                        clearInterval(pollInterval);
+
+                        // 加载皮肤纹理
+                        await loadSkinTexture(result.image_url);
+
+                        // 保存皮肤到本地存储
+                        localStorage.setItem('snakeGameSkin', result.image_url);
+
+                        // 隐藏加载动画
+                        hideSkinLoading();
+
+                        // 显示成功提示
+                        alert('AI 皮肤生成成功！已应用到游戏。');
+
+                    } else if (result.status === 'failed') {
+                        clearInterval(pollInterval);
+                        throw new Error(result.message || '生成失败');
+
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(pollInterval);
+                        throw new Error('生成超时');
+                    }
+
+                } catch (error) {
+                    clearInterval(pollInterval);
+                    throw error;
+                }
+
+            }, 1000); // 每秒轮询一次
+        }
+
+        async function loadSkinTexture(imageUrl) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+
+                img.onload = () => {
+                    // 创建离屏 canvas 来调整图片大小到网格大小
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCanvas.width = GRID_SIZE;
+                    tempCanvas.height = GRID_SIZE;
+
+                    // 绘制并缩放图片
+                    tempCtx.drawImage(img, 0, 0, GRID_SIZE, GRID_SIZE);
+
+                    // 创建 pattern
+                    gameState.skinTexture = tempCanvas;
+                    resolve();
+                };
+
+                img.onerror = () => {
+                    reject(new Error('图片加载失败'));
+                };
+
+                img.src = imageUrl;
+            });
+        }
+
+        function showSkinLoading() {
+            gameState.isSkinLoading = true;
+            const overlay = document.getElementById('skinLoadingOverlay');
+            overlay.classList.add('show');
+            updateLoadingProgress(0);
+        }
+
+        function hideSkinLoading() {
+            gameState.isSkinLoading = false;
+            const overlay = document.getElementById('skinLoadingOverlay');
+            overlay.classList.remove('show');
+        }
+
+        function updateLoadingProgress(progress) {
+            const progressText = document.getElementById('loadingProgress');
+            const messages = {
+                0: '准备中...',
+                10: '上传请求...',
+                30: 'AI 正在生成...',
+                50: '生成中...',
+                70: '生成中...',
+                90: '即将完成...',
+                100: '加载图片...'
+            };
+
+            // 根据进度选择合适的提示信息
+            let message = messages[Math.floor(progress / 10) * 10] || '生成中...';
+            progressText.textContent = `${message} (${progress}%)`;
         }
 
         // ==================== 初始化 ====================
