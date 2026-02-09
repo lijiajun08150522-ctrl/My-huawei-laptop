@@ -442,10 +442,31 @@
             const savedSkin = localStorage.getItem('snakeGameSkin');
             if (savedSkin) {
                 loadSkinTexture(savedSkin);
+            } else {
+                // 轮询服务器获取最新皮肤
+                pollCurrentSkin();
             }
 
             // 绘制初始界面
             draw();
+        }
+
+        // ==================== 轮询获取当前皮肤 ====================
+        async function pollCurrentSkin() {
+            try {
+                const response = await fetch('/api/skin/current');
+                const result = await response.json();
+
+                if (result.success && result.skin_url) {
+                    // 加载新皮肤
+                    await loadSkinTexture(result.skin_url);
+                    // 保存到本地存储
+                    localStorage.setItem('snakeGameSkin', result.skin_url);
+                    console.log('[INFO] 已应用服务器皮肤:', result.skin_url);
+                }
+            } catch (error) {
+                console.log('[INFO] 获取服务器皮肤失败，使用默认皮肤');
+            }
         }
 
         // ==================== 游戏控制 ====================
@@ -830,17 +851,13 @@
             showSkinLoading();
 
             try {
-                // 调用 AI 皮肤生成 API
-                const response = await fetch('/api/agent', {
+                // 调用后端皮肤生成 API
+                const response = await fetch('/api/skin/generate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        prompt: 'a cute cartoon snake skin with colorful pattern',
-                        style: 'cartoon',
-                        width: 512,
-                        height: 512,
                         player_id: 'player_' + Math.floor(Math.random() * 10000)
                     })
                 });
@@ -851,7 +868,8 @@
 
                 const result = await response.json();
 
-                if (result.success && result.image_url) {
+                if (result.success && result.task_id) {
+                    console.log('[INFO] 皮肤生成任务已提交:', result.task_id);
                     // 轮询查询生成状态
                     await pollSkinStatus(result.task_id);
                 } else {
@@ -873,7 +891,7 @@
                 attempts++;
 
                 try {
-                    const response = await fetch(`/api/agent/status/${taskId}`);
+                    const response = await fetch(`/api/skin/status/${taskId}`);
 
                     if (!response.ok) {
                         throw new Error('查询状态失败');
@@ -901,6 +919,9 @@
 
                         // 显示成功提示
                         alert('AI 皮肤生成成功！已应用到游戏。');
+
+                        // 刷新游戏界面
+                        draw();
 
                     } else if (result.status === 'failed') {
                         clearInterval(pollInterval);
