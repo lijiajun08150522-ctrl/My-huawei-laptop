@@ -3,7 +3,7 @@ Flask任务管理器Web服务端
 基于task.py逻辑，提供REST API和Web界面
 """
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 from datetime import datetime
 import socket
 import os
@@ -95,7 +95,7 @@ def index():
 @app.route('/game')
 def game():
     """贪吃蛇游戏页"""
-    return app.send_static_file('../snake_game.html')
+    return send_from_directory('.', 'snake_game.html')
 
 
 @app.route('/tasks')
@@ -107,7 +107,7 @@ def tasks():
 @app.route('/presentation')
 def presentation():
     """实训报告页"""
-    return app.send_static_file('../presentation.html')
+    return send_from_directory('.', 'presentation.html')
 
 
 @app.route('/api/tasks', methods=['GET'])
