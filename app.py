@@ -101,7 +101,7 @@ def game():
 @app.route('/tasks')
 def tasks():
     """任务管理器页"""
-    return app.send_static_file('index.html')
+    return send_from_directory('web', 'index.html')
 
 
 @app.route('/presentation')
