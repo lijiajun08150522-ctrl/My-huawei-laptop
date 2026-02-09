@@ -561,13 +561,13 @@ class SkinGenerator:
 # 模拟模式（用于测试，无需 ComfyUI 服务）
 class MockSkinGenerator:
     """模拟皮肤生成器（用于测试）"""
-    
+
     def __init__(self):
         self.tasks = {}
         self.mock_images = [
-            "https://via.placeholder.com/512/FF6B6B/FFFFFF?text=Snake+Skin+1",
-            "https://via.placeholder.com/512/4ECDC4/FFFFFF?text=Snake+Skin+2",
-            "https://via.placeholder.com/512/45B7D1/FFFFFF?text=Snake+Skin+3"
+            "/api/skin/image/mock_skin_1.png",
+            "/api/skin/image/mock_skin_2.png",
+            "/api/skin/image/mock_skin_3.png"
         ]
         self.mock_index = 0
     
