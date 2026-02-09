@@ -19,6 +19,7 @@ from constants import (
     DEFAULT_CATEGORY, DEFAULT_SUMMARY_FILE
 )
 from comfyui_client import ComfyUIClient, SkinGenerator, MockSkinGenerator
+from dify_agent import dify_agent, get_daily_challenge, get_current_theme, generate_theme_prompt
 
 app = Flask(__name__)
 
@@ -487,6 +488,156 @@ def get_skin_history():
         return jsonify({
             'success': False,
             'message': f"获取历史失败: {str(e)}"
+        }), 500
+
+
+# ==================== Dify Agent 接口 ====================
+
+@app.route('/api/agent/daily', methods=['GET'])
+def get_agent_daily():
+    """
+    获取每日挑战
+    返回 Dify Agent 生成的当日挑战
+    """
+    try:
+        challenge = get_daily_challenge()
+
+        return jsonify({
+            'success': True,
+            'challenge': challenge
+        })
+
+    except Exception as e:
+        print(f"[ERROR] 获取每日挑战失败: {e}")
+        return jsonify({
+            'success': False,
+            'message': f"获取挑战失败: {str(e)}"
+        }), 500
+
+
+@app.route('/api/agent/theme', methods=['GET'])
+def get_agent_theme():
+    """
+    获取当前主题
+    根据日期自动决定的主题
+    """
+    try:
+        theme = get_current_theme()
+
+        return jsonify({
+            'success': True,
+            'theme': theme
+        })
+
+    except Exception as e:
+        print(f"[ERROR] 获取主题失败: {e}")
+        return jsonify({
+            'success': False,
+            'message': f"获取主题失败: {str(e)}"
+        }), 500
+
+
+@app.route('/api/agent/prompt', methods=['POST'])
+def generate_agent_prompt():
+    """
+    生成 ComfyUI 提示词
+    基于当前主题或自定义主题
+    """
+    try:
+        data = request.get_json()
+
+        theme_key = data.get('theme_key')
+        custom_description = data.get('description')
+
+        # 生成提示词
+        prompt = generate_theme_prompt(theme_key, custom_description)
+
+        return jsonify({
+            'success': True,
+            'prompt': prompt,
+            'theme_key': theme_key or dify_agent.current_theme_key,
+            'theme_name': (theme_key or dify_agent.current_theme_key).upper()
+        })
+
+    except Exception as e:
+        print(f"[ERROR] 生成提示词失败: {e}")
+        return jsonify({
+            'success': False,
+            'message': f"生成提示词失败: {str(e)}"
+        }), 500
+
+
+@app.route('/api/agent/generate-skin', methods=['POST'])
+def agent_generate_skin():
+    """
+    使用 Dify Agent 生成皮肤
+    自动决定主题，生成提示词，调用皮肤生成器
+    """
+    global snake_skin_url
+
+    try:
+        data = request.get_json()
+
+        # 获取主题
+        theme_key = data.get('theme_key')
+        custom_description = data.get('description')
+
+        # 生成提示词
+        prompt = generate_theme_prompt(theme_key, custom_description)
+
+        # 提交生成任务
+        success, task_id, message = skin_generator.generate_skin(
+            prompt=prompt,
+            player_id=data.get('player_id', f'agent_player_{int(time.time())}'),
+            style=data.get('style', 'auto'),
+            width=data.get('width', 512),
+            height=data.get('height', 512)
+        )
+
+        if success:
+            return jsonify({
+                'success': True,
+                'task_id': task_id,
+                'message': message,
+                'prompt': prompt,
+                'theme_key': theme_key or dify_agent.current_theme_key,
+                'theme_name': (theme_key or dify_agent.current_theme_key).upper()
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': message
+            }), 400
+
+    except Exception as e:
+        print(f"[ERROR] Agent 生成皮肤失败: {e}")
+        return jsonify({
+            'success': False,
+            'message': f"生成失败: {str(e)}"
+        }), 500
+
+
+@app.route('/api/agent/calendar', methods=['GET'])
+def get_agent_calendar():
+    """
+    获取主题日历
+    返回未来几周的主题安排
+    """
+    try:
+        weeks = int(request.args.get('weeks', 4))
+        calendar = dify_agent.get_theme_calendar(weeks)
+
+        return jsonify({
+            'success': True,
+            'calendar': calendar,
+            'weeks': weeks
+        })
+
+    except Exception as e:
+        print(f"[ERROR] 获取日历失败: {e}")
+        return jsonify({
+            'success': False,
+            'message': f"获取日历失败: {str(e)}"
         }), 500
 
 
