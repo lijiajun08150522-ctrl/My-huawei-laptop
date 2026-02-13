@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remake AI - 闲置资源循环利用</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 50%, #f0fdf4 100%);
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(134, 239, 172, 0.3);
+        }
+        
+        .input-glow:focus {
+            box-shadow: 0 0 0 3px rgba(134, 239, 172, 0.3);
+        }
+        
+        .btn-eco {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-eco:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(34, 197, 94, 0.3);
+        }
+        
+        .loading-spinner {
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #22c55e;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .suggestion-item {
+            border-left: 3px solid #22c55e;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <!-- Header -->
+    <header class="py-6 px-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">Remake AI</h1>
+                    <p class="text-xs text-green-600 font-medium">闲置资源循环利用</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-600">
+                <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path>
+                </svg>
+                <span>让每一件闲置物品焕发新生</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Input Section -->
+        <div class="glass-card rounded-2xl p-8 mb-8 fade-in">
+            <div class="text-center mb-6">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">发现闲置物品的新价值</h2>
+                <p class="text-gray-600">输入您想要改造的物品名称，AI将为您提供创意改造方案</p>
+            </div>
+            
+            <div class="max-w-3xl mx-auto">
+                <div class="flex gap-4">
+                    <input 
+                        type="text" 
+                        id="itemInput"
+                        placeholder="例如：旧牛仔裤、废纸箱、空玻璃瓶..."
+                        class="flex-1 px-6 py-4 text-lg rounded-xl border-2 border-green-200 focus:border-green-400 focus:outline-none input-glow transition-all bg-white/80"
+                    >
+                    <button 
+                        onclick="handleRemake()"
+                        class="btn-eco px-8 py-4 text-white font-semibold rounded-xl flex items-center gap-2"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        开始改造
+                    </button>
+                </div>
+            </div>
+
+            <!-- Carbon Impact Display -->
+            <div id="carbonImpact" class="hidden mt-6 max-w-3xl mx-auto">
+                <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm text-green-600 font-medium">本次改造减少碳排放</p>
+                                <p class="text-2xl font-bold text-gray-800"><span id="carbonSaved">0</span> kg CO₂</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-600" id="carbonEquivalent">相当于种植0棵树</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden">
+            <div class="glass-card rounded-2xl p-12 flex flex-col items-center justify-center">
+                <div class="loading-spinner mb-4"></div>
+                <p class="text-gray-600 font-medium">AI正在为您分析...</p>
+                <p class="text-sm text-gray-500 mt-2">这可能需要几秒钟</p>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Left: AI Suggestions -->
+                <div class="glass-card rounded-2xl p-6 fade-in">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-xl flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800">AI 改造建议</h3>
+                            <p class="text-sm text-gray-500">基于智能分析的专业建议</p>
+                        </div>
+                    </div>
+
+                    <!-- Value Assessment -->
+                    <div id="valueAssessment" class="mb-6">
+                        <!-- Will be populated by JS -->
+                    </div>
+
+                    <!-- Suggestions List -->
+                    <div id="suggestionsList" class="space-y-4">
+                        <!-- Will be populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Right: Remake Images -->
+                <div class="glass-card rounded-2xl p-6 fade-in">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-600 rounded-xl flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800">改造效果图</h3>
+                            <p class="text-sm text-gray-500">ComfyUI 生成的创意设计</p>
+                        </div>
+                    </div>
+
+                    <!-- Images Grid -->
+                    <div id="imagesGrid" class="grid grid-cols-1 gap-4">
+                        <!-- Will be populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="glass-card rounded-2xl p-12 fade-in">
+            <div class="text-center">
+                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">开始您的环保之旅</h3>
+                <p class="text-gray-600 max-w-md mx-auto">
+                    在上方输入您想要改造的闲置物品名称，我们将为您提供专业的改造建议和创意设计
+                </p>
+                <div class="mt-6 flex justify-center gap-4 flex-wrap">
+                    <button onclick="setExample('旧牛仔裤')" class="px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm hover:bg-green-100 transition-colors">
+                        旧牛仔裤
+                    </button>
+                    <button onclick="setExample('废纸箱')" class="px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm hover:bg-green-100 transition-colors">
+                        废纸箱
+                    </button>
+                    <button onclick="setExample('空玻璃瓶')" class="px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm hover:bg-green-100 transition-colors">
+                        空玻璃瓶
+                    </button>
+                    <button onclick="setExample('旧T恤')" class="px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm hover:bg-green-100 transition-colors">
+                        旧T恤
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-6 px-4 mt-12">
+        <div class="max-w-7xl mx-auto text-center text-sm text-gray-500">
+            <p>© 2026 Remake AI - 让循环经济成为日常</p>
+            <p class="mt-1">每一次改造都是对地球的守护 🌍</p>
+        </div>
+    </footer>
+
+    <script>
+        // Set example item
+        function setExample(item) {
+            document.getElementById('itemInput').value = item;
+            document.getElementById('itemInput').focus();
+        }
+
+        // Handle remake request
+        async function handleRemake() {
+            const itemName = document.getElementById('itemInput').value.trim();
+            
+            if (!itemName) {
+                alert('请输入物品名称');
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('carbonImpact').classList.add('hidden');
+
+            try {
+                // Call API
+                const response = await fetch('/api/remake', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        item_name: itemName,
+                        user_id: 'anonymous'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayResults(result.data);
+                } else {
+                    alert('错误: ' + result.error.message);
+                    showEmptyState();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('请求失败，请稍后重试');
+                showEmptyState();
+            }
+        }
+
+        // Display results
+        function displayResults(data) {
+            // Hide loading, show results
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+
+            // Display carbon impact
+            document.getElementById('carbonImpact').classList.remove('hidden');
+            document.getElementById('carbonSaved').textContent = data.carbon_savings.saved_kg.toFixed(2);
+            document.getElementById('carbonEquivalent').textContent = data.carbon_savings.equivalent_to;
+
+            // Display value assessment
+            const valueAssessment = document.getElementById('valueAssessment');
+            valueAssessment.innerHTML = `
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5">
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <p class="text-2xl font-bold text-blue-600">${data.value_assessment.value_score}</p>
+                            <p class="text-xs text-gray-600">价值评分</p>
+                        </div>
+                        <div>
+                            <p class="text-lg font-semibold text-gray-800">${data.value_assessment.category || '未分类'}</p>
+                            <p class="text-xs text-gray-600">物品类别</p>
+                        </div>
+                        <div>
+                            <span class="inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                                ${data.value_assessment.reuse_potential}
+                            </span>
+                            <p class="text-xs text-gray-600 mt-1">改造潜力</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Display suggestions
+            const suggestionsList = document.getElementById('suggestionsList');
+            suggestionsList.innerHTML = data.value_assessment.suggestions.map((suggestion, index) => `
+                <div class="suggestion-item bg-white/60 rounded-lg p-4 pl-5 hover:bg-white/80 transition-colors">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span class="text-green-600 font-semibold text-sm">${index + 1}</span>
+                        </div>
+                        <div>
+                            <p class="text-gray-800 font-medium">${suggestion}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Display images
+            const imagesGrid = document.getElementById('imagesGrid');
+            if (data.remake_images && data.remake_images.length > 0) {
+                imagesGrid.innerHTML = data.remake_images.map(image => `
+                    <div class="group relative rounded-xl overflow-hidden bg-gray-100">
+                        <img 
+                            src="${image.image_url}" 
+                            alt="${image.caption}"
+                            class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                            onerror="this.src='https://via.placeholder.com/400x300?text=图片加载失败'"
+                        >
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div class="absolute bottom-0 left-0 right-0 p-4">
+                                <p class="text-white text-sm font-medium">${image.caption}</p>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                imagesGrid.innerHTML = `
+                    <div class="text-center py-12">
+                        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <p class="text-gray-500">图片生成中...</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Show empty state
+        function showEmptyState() {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('emptyState').classList.remove('hidden');
+        }
+
+        // Enter key support
+        document.getElementById('itemInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                handleRemake();
+            }
+        });
+    </script>
+</body>
+</html>
