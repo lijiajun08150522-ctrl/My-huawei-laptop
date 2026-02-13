@@ -30,6 +30,12 @@ class Config:
     
     # ComfyUI 配置
     COMFYUI_URL = os.getenv('COMFYUI_URL', 'http://127.0.0.1:8188')
+    COMFYUI_API_KEY = os.getenv('COMFYUI_API_KEY', '')
+    COMFYUI_TIMEOUT = int(os.getenv('COMFYUI_TIMEOUT', '120'))
+    
+    # Dify 配置
+    DIFY_API_KEY = os.getenv('DIFY_API_KEY', '')
+    DIFY_API_URL = os.getenv('DIFY_API_URL', '')
     
     # 数据库配置
     DATABASE_PATH = os.getenv('DATABASE_PATH', 'remake_ai.db')
@@ -412,6 +418,10 @@ class RemakeImageGenerator:
             prompt = f"{style_prompt}"
             
             try:
+                # 检查 ComfyUI 健康状态
+                if not self.client.check_health():
+                    raise Exception("ComfyUI 服务不可用")
+                
                 # 提交任务到 ComfyUI
                 prompt_id = self.client.submit_prompt(
                     prompt=prompt,
@@ -423,48 +433,63 @@ class RemakeImageGenerator:
                 )
                 
                 # 等待生成完成
-                max_wait = 120  # 最多等待120秒
+                max_wait = Config.COMFYUI_TIMEOUT  # 从配置读取超时时间
                 start_time = time.time()
                 
                 while time.time() - start_time < max_wait:
-                    status = self.client.get_status(prompt_id)
-                    
-                    if prompt_id in status:
-                        outputs = status[prompt_id].get("outputs", {})
+                    try:
+                        status = self.client.get_status(prompt_id)
                         
-                        if outputs:
-                            # 获取图片信息
-                            node_id = list(outputs.keys())[0]
-                            output_images = outputs[node_id].get("images", [])
+                        if prompt_id in status:
+                            outputs = status[prompt_id].get("outputs", {})
                             
-                            if output_images:
-                                image_info = output_images[0]
-                                filename = image_info["filename"]
+                            if outputs:
+                                # 获取图片信息
+                                node_id = list(outputs.keys())[0]
+                                output_images = outputs[node_id].get("images", [])
                                 
-                                # 构建图片URL
-                                image_url = f"{self.client.base_url}/view?filename={filename}"
-                                
-                                images.append({
-                                    "image_id": str(uuid.uuid4()),
-                                    "image_url": image_url,
-                                    "prompt": prompt,
-                                    "caption": f"{item_name} 改造为 {suggestion}",
-                                    "params": {
-                                        "steps": 30,
-                                        "cfg_scale": 7.5,
-                                        "seed": "random"
-                                    }
-                                })
-                                break
+                                if output_images:
+                                    image_info = output_images[0]
+                                    filename = image_info["filename"]
+                                    
+                                    # 构建图片URL
+                                    image_url = f"{self.client.base_url}/view?filename={filename}"
+                                    
+                                    images.append({
+                                        "image_id": str(uuid.uuid4()),
+                                        "image_url": image_url,
+                                        "prompt": prompt,
+                                        "caption": f"{item_name} 改造为 {suggestion}",
+                                        "params": {
+                                            "steps": 30,
+                                            "cfg_scale": 7.5,
+                                            "seed": "random"
+                                        }
+                                    })
+                                    break
                     
-                    time.sleep(2)
+                        time.sleep(2)
+                    
+                    except requests.exceptions.Timeout:
+                        print(f"[WARNING] ComfyUI 响应超时，继续等待... (item: {item_name})")
+                        time.sleep(2)
+                        continue
+                    
+                    except requests.exceptions.ConnectionError as e:
+                        print(f"[ERROR] ComfyUI 连接失败: {e}")
+                        raise Exception("AI 正在构思中，请稍后再试")
                 
-            except Exception as e:
-                print(f"[ERROR] 生成图片失败: {e}")
-                # 使用占位符URL
+                # 超时处理
+                if time.time() - start_time >= max_wait:
+                    print(f"[WARNING] ComfyUI 生成超时 (item: {item_name}, suggestion: {suggestion})")
+                    raise Exception("AI 正在构思中，请稍后再试")
+                
+            except requests.exceptions.Timeout:
+                print(f"[ERROR] ComfyUI 请求超时")
+                # 使用占位符URL，提示用户
                 images.append({
                     "image_id": str(uuid.uuid4()),
-                    "image_url": "https://via.placeholder.com/1024x1024?text=图片生成中",
+                    "image_url": "https://via.placeholder.com/1024x1024?text=AI正在构思中，请稍后再试",
                     "prompt": prompt,
                     "caption": f"{item_name} 改造为 {suggestion}",
                     "params": {

@@ -17,13 +17,20 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       # ComfyUI 配置
       - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
+      - COMFYUI_API_KEY=${COMFYUI_API_KEY:-}
+      - COMFYUI_TIMEOUT=${COMFYUI_TIMEOUT:-120}
+      # Dify 配置
+      - DIFY_API_KEY=${DIFY_API_KEY:-}
+      - DIFY_API_URL=${DIFY_API_URL:-}
       # 数据库配置
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     volumes:
-      # 挂载数据库文件（开发环境使用SQLite）
+      # 持久化数据库文件（开发环境使用SQLite）
       - ./backend/data:/app/data
-      # 挂载生成的图片
+      # 持久化生成的图片
       - ./backend/images:/app/images
+      # 持久化日志文件
+      - ./backend/logs:/app/logs
     depends_on:
       db:
         condition: service_healthy

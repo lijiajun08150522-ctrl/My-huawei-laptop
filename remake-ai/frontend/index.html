@@ -282,7 +282,26 @@
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('请求失败，请稍后重试');
+                
+                // 根据错误类型显示不同的提示
+                let errorMessage = '请求失败，请稍后重试';
+                
+                if (error.response) {
+                    const status = error.response.status;
+                    const errorData = error.response.data;
+                    
+                    if (status === 401) {
+                        errorMessage = '认证失效，请重新登录';
+                    } else if (status === 500) {
+                        errorMessage = errorData?.error?.message || '服务器内部错误';
+                    } else if (status === 504) {
+                        errorMessage = 'AI 正在构思中，请稍后再试';
+                    }
+                } else if (error.message && error.message.includes('timeout')) {
+                    errorMessage = 'AI 正在构思中，请稍后再试';
+                }
+                
+                alert(errorMessage);
                 showEmptyState();
             }
         }
